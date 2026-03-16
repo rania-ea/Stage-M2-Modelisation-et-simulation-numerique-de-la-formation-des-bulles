@@ -1,0 +1,214 @@
+
+import numpy as np
+import sys
+from scipy.optimize import fsolve
+#paramétre 
+a_AA = 6.41
+a_AB = 4
+a_BB = 0.92
+b_A = 0.036
+b_B = 0.051
+k = 12.2
+t = 1
+p = 23.0847
+
+c_A_plus = 23.0847
+c_B_plus = 2.2
+c_A_moins = 19.75
+c_B_moins = 4.47
+
+
+x = np.array([c_A_plus, c_B_plus, c_A_moins, c_B_moins])
+
+#vérif région des réalisable
+
+
+denom_1  = 1-b_A*x[0] - b_B*x[1]                      
+denom_2 = 1-b_A*x[2] - b_B*x[3]                            
+
+ok_1 = (x[0]  > 0 + 1e-12)             # petite tolérance numérique
+ok_2 = (x[1] > 0 + 1e-12)
+ok_3 = (x[2]  > 0 + 1e-12)             # petite tolérance numérique
+ok_4 = (x[3] > 0 + 1e-12)
+ok_5 = (denom_1 > 0 + 1e-12)
+ok_6 = (denom_2 > 0 + 1e-12)
+
+
+if not ok_1:
+    print("c_A^+ pas positif")
+
+if not ok_2:
+    print("c_B^+ pas positif")
+    
+if not ok_3:
+    print("c_A^- pas positif")
+
+if not ok_4:
+    print("c_B^- pas positif")
+    
+if not ok_5:
+    print("denominateur^+ pas positif")
+    
+if not ok_6:
+    print("denominateur^- pas positif")
+
+if not (ok_1 and ok_2 and ok_3 and ok_4 and ok_5 and ok_6):
+    print("STOP")
+    sys.exit()
+
+def energie_libre_homogene(c_A, c_B):
+    denom = 1 - c_A*b_A - c_B*b_B
+    return (
+        - a_AA * c_A**2
+        - 2 * a_AB * c_A * c_B
+        - a_BB * c_B**2
+        + k * t * (c_A * np.log(c_A / denom) + c_B * np.log(c_B / denom)))
+
+
+
+
+def G(x, lamda):
+    x = np.array(x, dtype=float)
+    return x - lamda * D(x)
+
+
+def potentiel_homogene_A(c_A, c_B):
+    denom = 1 - b_A*c_A - b_B*c_B
+    return (
+        -2*a_AA*c_A
+        -2*a_AB*c_B
+        + k*t*(
+            np.log(c_A / denom)
+            + 1
+            + b_A*(c_A + c_B)/denom))
+
+def potentiel_homogene_B(c_A, c_B):
+    denom = 1 - b_A*c_A - b_B*c_B
+    return (
+        -2*a_AB*c_A
+        -2*a_BB*c_B
+        + k*t*(
+            np.log(c_B / denom)
+            + 1
+            + b_B*(c_A + c_B) / denom))
+       
+
+def f1(x):
+    return potentiel_homogene_A(x[0],x[1]) - potentiel_homogene_A(x[2],x[3])
+def f2(x):
+    return potentiel_homogene_B(x[0],x[1]) - potentiel_homogene_B(x[2],x[3])
+def f3(x):
+    return (
+        energie_libre_homogene(x[0], x[1])
+        - potentiel_homogene_A(x[0], x[1]) * x[0]
+        - potentiel_homogene_B(x[0], x[1]) * x[1]
+        - (
+            energie_libre_homogene(x[2], x[3])
+            - potentiel_homogene_A(x[2], x[3]) * x[2]
+            - potentiel_homogene_B(x[2], x[3]) * x[3] ) )
+
+def f4(x):                                                                                                                                                           
+    return x[0] - p
+
+
+def D(x):
+    return np.array([f1(x), f2(x), f3(x), f4(x)])
+
+def jac_num(x, h=1e-8):
+    x = np.array(x, dtype=float)
+    J = np.zeros((4, 4))
+    Fx = D(x)
+
+    for j in range(4):
+        xh = x.copy()
+        xh[j] += h
+        J[:, j] = (D(xh) - Fx) / h
+
+    return J  
+def jacobienne(x):
+    cAp, cBp, cAm, cBm = x
+
+    dp = 1 - b_A*cAp - b_B*cBp
+    dm = 1 - b_A*cAm - b_B*cBm
+
+    return np.array([
+        [
+            -2*a_AA + k*t*(1/cAp + 2*b_A/dp + (b_A**2)*(cAp + cBp)/(dp**2)),
+            -2*a_AB + k*t*((b_A + b_B)/dp + b_A*b_B*(cAp + cBp)/(dp**2)),
+            2*a_AA - k*t*(1/cAm + 2*b_A/dm + (b_A**2)*(cAm + cBm)/(dm**2)),
+            2*a_AB - k*t*((b_A + b_B)/dm + b_A*b_B*(cAm + cBm)/(dm**2))
+        ],
+        [
+            -2*a_AB + k*t*((b_A + b_B)/dp + b_A*b_B*(cAp + cBp)/(dp**2)),
+            -2*a_BB + k*t*(1/cBp + 2*b_B/dp + (b_B**2)*(cAp + cBp)/(dp**2)),
+            2*a_AB - k*t*((b_A + b_B)/dm + b_A*b_B*(cAm + cBm)/(dm**2)),
+            2*a_BB - k*t*(1/cBm + 2*b_B/dm + (b_B**2)*(cAm + cBm)/(dm**2))
+        ],
+        [
+            -cAp*(-2*a_AA + k*t*(1/cAp + 2*b_A/dp + (b_A**2)*(cAp + cBp)/(dp**2)))
+            -cBp*(-2*a_AB + k*t*((b_A + b_B)/dp + b_A*b_B*(cAp + cBp)/(dp**2))),
+
+            -cAp*(-2*a_AB + k*t*((b_A + b_B)/dp + b_A*b_B*(cAp + cBp)/(dp**2)))
+            -cBp*(-2*a_BB + k*t*(1/cBp + 2*b_B/dp + (b_B**2)*(cAp + cBp)/(dp**2))),
+
+            cAm*(-2*a_AA + k*t*(1/cAm + 2*b_A/dm + (b_A**2)*(cAm + cBm)/(dm**2)))
+            +cBm*(-2*a_AB + k*t*((b_A + b_B)/dm + b_A*b_B*(cAm + cBm)/(dm**2))),
+
+            cAm*(-2*a_AB + k*t*((b_A + b_B)/dm + b_A*b_B*(cAm + cBm)/(dm**2)))
+            +cBm*(-2*a_BB + k*t*(1/cBm + 2*b_B/dm + (b_B**2)*(cAm + cBm)/(dm**2)))
+        ],
+        [1, 0, 0, 0]
+    ])
+init = x
+
+def newton(D, jac_num, init, e, nmax=10):
+    x_old = np.array(init, dtype=float)
+    k = 0
+
+    while k < nmax:
+        
+        F = D(x_old)
+        J = jac_num(x_old)
+
+        delta = np.linalg.solve(J, -F)
+        x_new = x_old + delta
+
+        if np.linalg.norm(delta) < e:
+            return x_new
+
+        x_old = x_new
+        k += 1
+
+    return x_old,k
+
+def point_fixe(G, init, lamda, eps=1e-10, nmax=200):
+    x_old = np.array(init)
+
+    for k in range(nmax):
+        x_new = G(x_old, lamda)
+
+        if np.linalg.norm(x_new - x_old) < eps:
+            return x_new, k+1
+
+        x_old = x_new
+
+    return x_old, nmax
+
+
+sol, it = point_fixe(G, init, lamda=1e-3)   # toujours mettre 0<lamda<1 pour contration
+print(sol,"avec point fixe ")
+print(it,"ité nombre")
+
+print(newton(D,jac_num,init,10**(-12))[0])
+print("ité = ", newton(D,jac_num,init,10**(-12))[1])
+print(newton(D,jac_num,init,10**(-2)),"newton avec jac num")
+print(newton(D,jacobienne,init,10**(-2)),"newton avec jac a la main")
+print( fsolve(D, x,fprime=jacobienne),"fsolve avec jac a la main")
+print( fsolve(D, x,fprime=jac_num),"fsolve avec jac num")
+
+sep = np.sqrt((x[0] - x[2])**2 + (x[1] - x[3])**2)
+solution_trivial = (sep < 1e5)
+
+
+if  solution_trivial:
+    print("il s'agit d'une solution trivial")
