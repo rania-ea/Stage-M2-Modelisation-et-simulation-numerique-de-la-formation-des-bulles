@@ -210,5 +210,14 @@ sep = np.sqrt((x[0] - x[2])**2 + (x[1] - x[3])**2)
 solution_trivial = (sep < 1e5)
 
 
-if  solution_trivial:
-    print("il s'agit d'une solution trivial")
+## vérificatifon des point 
+
+
+print(D(sol),"avec point fixe ")
+
+print(D(newton(D,jacobienne,init,10**(-2))),"newton avec jac a la main")
+
+print( D(fsolve(D, x,fprime=jacobienne)),"fsolve avec jac a la main")
+
+
+
