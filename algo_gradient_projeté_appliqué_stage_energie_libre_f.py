@@ -1,16 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon May  4 14:32:15 2026
 
-@author: rania
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Mon May  4 12:32:03 2026
-
-@author: rania
-"""
 #algorithm du gradient projete pour dimention n fini
 import numpy as np
 
